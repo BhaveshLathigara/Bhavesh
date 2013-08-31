@@ -1,10 +1,13 @@
 #import "CountryView.h"
 #import "AppDelegate.h"
-#import "Countries.h"
+
 #import "AddCountry.h"
 #import "UpdateCountry.h"
-#import "StateView.h"
+
 @implementation CountryView
+
+AppDelegate *appDelegate;
+
 @synthesize countryTableView;
 @synthesize btnAddCountry;
 
@@ -13,6 +16,13 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    
+    self.title = NSLocalizedString(@"Country View", @"Country View");
+    
+    appDelegate = [AppDelegate sharedAppDelegate];
+    
+    
+    [self getCountry];
     
     btnAddCountry = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(insertCountry)];
 
@@ -34,62 +44,6 @@
 }
 
 
-- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
-{
-    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
-    self.title = NSLocalizedString(@"Country View", @"Country View");
-    if (self != nil) 
-    {
-        NSFetchRequest *fetchRequest = [[NSFetchRequest alloc] init];
-        
-        NSEntityDescription *entity = [NSEntityDescription entityForName:@"Countries"
-                                                  inManagedObjectContext:[self managedObjectContext]];
-        
-        NSSortDescriptor *nameSort = [[NSSortDescriptor alloc] initWithKey:@"cname"ascending:YES];
-        
-        NSArray *sortDescriptors = [[NSArray alloc] initWithObjects:nameSort,nil];
-        
-        fetchRequest.sortDescriptors = sortDescriptors;
-        
-        [fetchRequest setEntity:entity];
-        
-                self.countryFRC = [[NSFetchedResultsController alloc] initWithFetchRequest:fetchRequest managedObjectContext:[self managedObjectContext] sectionNameKeyPath:nil cacheName:nil];
-                
-                self.countryFRC.delegate = self;
-
-       
-
-        NSError *fetchingError = nil;
-        
-        if([self.countryFRC performFetch:&fetchingError])
-        {
-            NSLog(@"Successfully fetched....  ");
-        }
-        else
-        {
-            NSLog(@"Failed to fetch....  ");
-        }
-        
-        
-        
-    }
-    return self;
-}
-
-
-
-- (NSManagedObjectContext *) managedObjectContext{
-    
-    AppDelegate *appDelegate = 
-    (AppDelegate *)
-    [[UIApplication sharedApplication] delegate];
-    
-    NSManagedObjectContext *managedObjectContext = 
-    appDelegate.managedObjectContext;
-    
-    return managedObjectContext;
-    
-}
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
 {
     return 1;
@@ -122,8 +76,7 @@
         
     }
 
-            
-    Countries *objCountries = [self.countryFRC objectAtIndexPath:indexPath];
+    objCountries = [self.countryFRC objectAtIndexPath:indexPath];
     
     result.textLabel.text = objCountries.cname; //stringByAppendingFormat:@" %@", objCountries.cname];
     
@@ -134,8 +87,8 @@
     return result;
 }
 
-- (void)    tableView:(UITableView *)tableView 
-   commitEditingStyle:(UITableViewCellEditingStyle)editingStyle 
+- (void)    tableView:(UITableView *)tableView
+   commitEditingStyle:(UITableViewCellEditingStyle)editingStyle
     forRowAtIndexPath:(NSIndexPath *)indexPath{
     
     Countries *countriesToDelete = [self.countryFRC objectAtIndexPath:indexPath];
@@ -144,11 +97,13 @@
      while deleting the managed object */
     self.countryFRC.delegate = nil;
     
-    [[self managedObjectContext] deleteObject:countriesToDelete];
+    [appDelegate.managedObjectContext deleteObject:countriesToDelete];
+    
+    
     
     if ([countriesToDelete isDeleted]){
         NSError *savingError = nil;
-        if ([[self managedObjectContext] save:&savingError]){
+        if ([appDelegate.managedObjectContext save:&savingError]){
             
             NSError *fetchingError = nil;
             if ([self.countryFRC performFetch:&fetchingError]){
@@ -175,9 +130,15 @@
 }
 - (UITableViewCellEditingStyle)tableView:(UITableView *)tableView
            editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath{
+    
     return UITableViewCellEditingStyleDelete;
 }
-
+//- (void)deleteSections:(NSIndexSet *)sections withRowAnimation:(UITableViewRowAnimation)animation
+//{
+//    [countryTableView beginUpdates];
+//    [countryTableView deleteSections:[NSIndexSet indexSetWithIndex:1] withRowAnimation:UITableViewRowAnimationTop];
+//    [countryTableView endUpdates];
+//}
 - (void) setEditing:(BOOL)paramEditing
            animated:(BOOL)paramAnimated{
     
@@ -189,7 +150,6 @@
     {
         [self.navigationItem setRightBarButtonItem:nil
                                           animated:YES];
-                
     } 
     else 
     {
@@ -204,9 +164,17 @@
 }
 -(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
+
+    
+    
+     objCountries = [self.countryFRC objectAtIndexPath:indexPath];
+
+    
     UIAlertView *alertUpdate = [[UIAlertView alloc] initWithTitle:@"Warning" message:@"Do you want to UPDATE the Countries? " delegate:self cancelButtonTitle:@"Yes"otherButtonTitles:@"No",nil];
     [alertUpdate show];
     [alertUpdate release];
+    
+    
 }
 
 
@@ -216,7 +184,10 @@
            
     if([buttonindex isEqualToString:@"Yes"])
     {
-        UpdateCountry *objUpdateCountry = [[UpdateCountry alloc] initWithNibName:@"UpdateCountry" bundle:nil];
+        objUpdateCountry = [[UpdateCountry alloc] initWithNibName:@"UpdateCountry" bundle:nil];
+        
+        [objUpdateCountry setObjCountries:objCountries];
+        
         
         [self.navigationController pushViewController:objUpdateCountry animated:YES];
 
@@ -224,20 +195,55 @@
     else
     {
         StateView *objStateView = [[StateView alloc] initWithNibName:@"StateView" bundle:nil];
-        
+
+        [objStateView setObjCountries:objCountries];        
         [self.navigationController pushViewController:objStateView animated:YES];
     }
 }
 
-
-
 - (void)controllerDidChangeContent:(NSFetchedResultsController *)controller{
+    
     [self.countryTableView reloadData];
 }
+
 - (void)didReceiveMemoryWarning
 {
     [super didReceiveMemoryWarning];
     // Release any cached data, images, etc that aren't in use.
+}
+
+#pragma mark - Fetch Countries
+
+-(void) getCountry {
+    NSFetchRequest *fetchRequest = [[NSFetchRequest alloc] init];
+    
+    NSEntityDescription *entity = [NSEntityDescription entityForName:@"Countries"
+                                              inManagedObjectContext:appDelegate.managedObjectContext];
+    
+    NSSortDescriptor *nameSort = [[NSSortDescriptor alloc] initWithKey:@"cname"ascending:YES];
+    
+    NSArray *sortDescriptors = [[NSArray alloc] initWithObjects:nameSort,nil];
+    
+    fetchRequest.sortDescriptors = sortDescriptors;
+    
+    [fetchRequest setEntity:entity];
+    
+    self.countryFRC = [[NSFetchedResultsController alloc] initWithFetchRequest:fetchRequest managedObjectContext:appDelegate.managedObjectContext sectionNameKeyPath:nil cacheName:nil];
+    
+    self.countryFRC.delegate = self;
+    
+    
+    
+    NSError *fetchingError = nil;
+    
+    if([self.countryFRC performFetch:&fetchingError])
+    {
+        NSLog(@"Successfully fetched....  ");
+    }
+    else
+    {
+        NSLog(@"Failed to fetch....  ");
+    }
 }
 
 #pragma mark - View lifecycle
